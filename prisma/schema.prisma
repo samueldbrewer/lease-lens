@@ -1,0 +1,79 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Document {
+  id           String          @id @default(uuid())
+  filename     String
+  originalText String?         @db.Text
+  pageCount    Int             @default(0)
+  status       String          @default("pending") // pending, processing, ready, error
+  errorMessage String?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  leaseTerms   LeaseTerms?
+  chunks       DocumentChunk[]
+}
+
+model LeaseTerms {
+  id                     String   @id @default(uuid())
+  documentId             String   @unique
+  document               Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  propertyAddress        String?
+  tenantName             String?
+  landlordName           String?
+  leaseStart             DateTime?
+  leaseEnd               DateTime?
+  monthlyRent            Decimal?
+  securityDeposit        Decimal?
+  leaseType              String?  // NNN, Gross, Modified Gross, etc.
+  squareFootage          Int?
+  permittedUse           String?  @db.Text
+  renewalOptions         String?  @db.Text
+  terminationClauses     String?  @db.Text
+  maintenanceObligations Json?    // { tenant: [], landlord: [] }
+  insuranceRequirements  Json?    // { types: [], minimumCoverage: "" }
+  taxObligations         String?  @db.Text
+  camCharges             String?  @db.Text
+  escalationClauses      String?  @db.Text
+  keyProvisions          Json?    // string[]
+  summary                String?  @db.Text
+  createdAt              DateTime @default(now())
+}
+
+model DocumentChunk {
+  id         String   @id @default(uuid())
+  documentId String
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  chunkIndex Int
+  content    String   @db.Text
+  section    String?  // optional section label
+  createdAt  DateTime @default(now())
+
+  @@index([documentId])
+}
+
+model Conversation {
+  id        String    @id @default(uuid())
+  title     String    @default("New Conversation")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  messages  Message[]
+}
+
+model Message {
+  id             String       @id @default(uuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           String       // user, assistant
+  content        String       @db.Text
+  sources        Json?        // references to chunks used
+  createdAt      DateTime     @default(now())
+
+  @@index([conversationId])
+}

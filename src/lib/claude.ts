@@ -60,7 +60,7 @@ export async function extractLeaseTerms(
   const truncatedText = documentText.slice(0, 100000);
 
   const response = await client.chat.completions.create({
-    model: "gpt-4o",
+    model: "gpt-5.2",
     max_tokens: 4096,
     messages: [
       {
@@ -118,7 +118,7 @@ export async function* streamChatResponse(
   const systemPrompt = `${CHAT_SYSTEM_PROMPT}\n\n--- LEASE PORTFOLIO CONTEXT ---\n${context}\n--- END CONTEXT ---`;
 
   const stream = await client.chat.completions.create({
-    model: "gpt-4o",
+    model: "gpt-5.2",
     max_tokens: 4096,
     stream: true,
     messages: [

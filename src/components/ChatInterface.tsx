@@ -155,7 +155,7 @@ export default function ChatInterface() {
                 </div>
               )}
               <div
-                className={`max-w-[75%] rounded-2xl px-5 py-3 ${
+                className={`max-w-[85%] md:max-w-[75%] rounded-2xl px-4 md:px-5 py-3 ${
                   msg.role === "user"
                     ? "bg-blue-600 text-white"
                     : "bg-white border border-gray-200 text-gray-800"

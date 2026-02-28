@@ -96,7 +96,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="flex-1 overflow-y-auto p-8 space-y-8">
+    <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-6 md:space-y-8">
       <div>
         <h1 className="text-3xl font-bold text-gray-800">Lease Portfolio</h1>
         <p className="text-gray-500 mt-1">

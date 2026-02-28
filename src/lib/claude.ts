@@ -1,7 +1,7 @@
-import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 
-const client = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
+const client = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
 });
 
 export interface ExtractedLeaseTerms {
@@ -59,30 +59,35 @@ export async function extractLeaseTerms(
 ): Promise<ExtractedLeaseTerms> {
   const truncatedText = documentText.slice(0, 100000);
 
-  const response = await client.messages.create({
-    model: "claude-sonnet-4-20250514",
+  const response = await client.chat.completions.create({
+    model: "gpt-4o",
     max_tokens: 4096,
     messages: [
       {
+        role: "system",
+        content: EXTRACTION_PROMPT,
+      },
+      {
         role: "user",
-        content: `${EXTRACTION_PROMPT}\n\nLEASE DOCUMENT TEXT:\n${truncatedText}`,
+        content: `LEASE DOCUMENT TEXT:\n${truncatedText}`,
       },
     ],
+    response_format: { type: "json_object" },
   });
 
-  const content = response.content[0];
-  if (content.type !== "text") {
-    throw new Error("Unexpected response type from Claude");
+  const content = response.choices[0]?.message?.content;
+  if (!content) {
+    throw new Error("No response from AI");
   }
 
   try {
-    return JSON.parse(content.text) as ExtractedLeaseTerms;
+    return JSON.parse(content) as ExtractedLeaseTerms;
   } catch {
-    const jsonMatch = content.text.match(/\{[\s\S]*\}/);
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       return JSON.parse(jsonMatch[0]) as ExtractedLeaseTerms;
     }
-    throw new Error("Failed to parse lease terms from Claude response");
+    throw new Error("Failed to parse lease terms from AI response");
   }
 }
 
@@ -112,19 +117,20 @@ export async function* streamChatResponse(
 ) {
   const systemPrompt = `${CHAT_SYSTEM_PROMPT}\n\n--- LEASE PORTFOLIO CONTEXT ---\n${context}\n--- END CONTEXT ---`;
 
-  const stream = client.messages.stream({
-    model: "claude-sonnet-4-20250514",
+  const stream = await client.chat.completions.create({
+    model: "gpt-4o",
     max_tokens: 4096,
-    system: systemPrompt,
-    messages: messages,
+    stream: true,
+    messages: [
+      { role: "system", content: systemPrompt },
+      ...messages,
+    ],
   });
 
-  for await (const event of stream) {
-    if (
-      event.type === "content_block_delta" &&
-      event.delta.type === "text_delta"
-    ) {
-      yield event.delta.text;
+  for await (const chunk of stream) {
+    const delta = chunk.choices[0]?.delta?.content;
+    if (delta) {
+      yield delta;
     }
   }
 }

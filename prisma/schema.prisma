@@ -7,6 +7,16 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id           String         @id @default(uuid())
+  email        String         @unique
+  passwordHash String
+  name         String?
+  createdAt    DateTime       @default(now())
+  documents    Document[]
+  conversations Conversation[]
+}
+
 model Document {
   id           String          @id @default(uuid())
   filename     String
@@ -14,10 +24,14 @@ model Document {
   pageCount    Int             @default(0)
   status       String          @default("pending") // pending, processing, ready, error
   errorMessage String?
+  userId       String
+  user         User            @relation(fields: [userId], references: [id])
   createdAt    DateTime        @default(now())
   updatedAt    DateTime        @updatedAt
   leaseTerms   LeaseTerms?
   chunks       DocumentChunk[]
+
+  @@index([userId])
 }
 
 model LeaseTerms {
@@ -61,9 +75,13 @@ model DocumentChunk {
 model Conversation {
   id        String    @id @default(uuid())
   title     String    @default("New Conversation")
+  userId    String
+  user      User      @relation(fields: [userId], references: [id])
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   messages  Message[]
+
+  @@index([userId])
 }
 
 model Message {

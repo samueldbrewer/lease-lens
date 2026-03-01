@@ -11,6 +11,7 @@ export interface SearchResult {
 
 export async function searchChunks(
   query: string,
+  userId: string,
   limit: number = 20
 ): Promise<SearchResult[]> {
   const words = query
@@ -35,11 +36,13 @@ export async function searchChunks(
     FROM "DocumentChunk" dc
     JOIN "Document" d ON dc."documentId" = d.id
     WHERE to_tsvector('english', dc.content) @@ to_tsquery('english', $1)
+      AND d."userId" = $3
     ORDER BY rank DESC
     LIMIT $2
     `,
     tsQuery,
-    limit
+    limit,
+    userId
   );
 
   return results;
@@ -47,6 +50,7 @@ export async function searchChunks(
 
 export async function searchChunksFallback(
   query: string,
+  userId: string,
   limit: number = 20
 ): Promise<SearchResult[]> {
   const words = query
@@ -59,7 +63,7 @@ export async function searchChunksFallback(
   const conditions = words.map(
     (_, i) => `dc.content ILIKE $${i + 1}`
   );
-  const whereClause = conditions.join(" OR ");
+  const whereClause = `(${conditions.join(" OR ")}) AND d."userId" = $${words.length + 1}`;
   const params = words.map((w) => `%${w}%`);
 
   const results = await prisma.$queryRawUnsafe<SearchResult[]>(
@@ -75,29 +79,31 @@ export async function searchChunksFallback(
     JOIN "Document" d ON dc."documentId" = d.id
     WHERE ${whereClause}
     ORDER BY dc."chunkIndex" ASC
-    LIMIT $${words.length + 1}
+    LIMIT $${words.length + 2}
     `,
     ...params,
+    userId,
     limit
   );
 
   return results;
 }
 
-export async function buildChatContext(query: string): Promise<string> {
+export async function buildChatContext(query: string, userId: string): Promise<string> {
   let results: SearchResult[];
 
   try {
-    results = await searchChunks(query, 15);
+    results = await searchChunks(query, userId, 15);
   } catch {
-    results = await searchChunksFallback(query, 15);
+    results = await searchChunksFallback(query, userId, 15);
   }
 
   if (results.length === 0) {
-    results = await searchChunksFallback(query, 15);
+    results = await searchChunksFallback(query, userId, 15);
   }
 
   const allLeaseTerms = await prisma.leaseTerms.findMany({
+    where: { document: { userId } },
     include: { document: { select: { filename: true } } },
   });
 

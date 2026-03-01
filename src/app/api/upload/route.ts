@@ -3,9 +3,16 @@ import { prisma } from "@/lib/db";
 import { extractTextFromPDF } from "@/lib/pdf";
 import { extractLeaseTerms } from "@/lib/claude";
 import { chunkDocument } from "@/lib/chunker";
+import { auth } from "@/lib/auth";
 
 export async function POST(request: NextRequest) {
   try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const userId = session.user.id;
+
     const formData = await request.formData();
     const files = formData.getAll("files") as File[];
 
@@ -29,6 +36,7 @@ export async function POST(request: NextRequest) {
         data: {
           filename: file.name,
           status: "processing",
+          userId,
         },
       });
 

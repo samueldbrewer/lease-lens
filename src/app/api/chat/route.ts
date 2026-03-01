@@ -2,9 +2,19 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { streamChatResponse } from "@/lib/claude";
 import { buildChatContext } from "@/lib/search";
+import { auth } from "@/lib/auth";
 
 export async function POST(request: NextRequest) {
   try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    const userId = session.user.id;
+
     const { message, conversationId } = await request.json();
 
     if (!message || typeof message !== "string") {
@@ -17,7 +27,7 @@ export async function POST(request: NextRequest) {
     let conversation;
     if (conversationId) {
       conversation = await prisma.conversation.findUnique({
-        where: { id: conversationId },
+        where: { id: conversationId, userId },
         include: {
           messages: {
             orderBy: { createdAt: "asc" },
@@ -31,7 +41,7 @@ export async function POST(request: NextRequest) {
       const title =
         message.length > 60 ? message.slice(0, 57) + "..." : message;
       conversation = await prisma.conversation.create({
-        data: { title },
+        data: { title, userId },
         include: { messages: true },
       });
     }
@@ -44,7 +54,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    const context = await buildChatContext(message);
+    const context = await buildChatContext(message, userId);
 
     const previousMessages = conversation.messages.map((m) => ({
       role: m.role as "user" | "assistant",

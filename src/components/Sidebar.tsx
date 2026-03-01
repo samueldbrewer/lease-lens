@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSession, signOut } from "next-auth/react";
 import {
   LayoutDashboard,
   FileUp,
@@ -10,6 +11,7 @@ import {
   FileText,
   Menu,
   X,
+  LogOut,
 } from "lucide-react";
 
 const nav = [
@@ -21,6 +23,10 @@ const nav = [
 export default function Sidebar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { data: session } = useSession();
+
+  // Don't render sidebar on auth pages
+  if (pathname === "/login" || pathname === "/signup") return null;
 
   return (
     <>
@@ -59,12 +65,21 @@ export default function Sidebar() {
         </nav>
 
         <div className="p-4 border-t border-slate-700">
-          <div className="px-4 py-3 bg-slate-800 rounded-lg">
-            <p className="text-xs text-slate-400">Powered by OpenAI</p>
-            <p className="text-xs text-slate-500 mt-1">
-              Lease analysis &amp; portfolio intelligence
-            </p>
-          </div>
+          {session?.user && (
+            <div className="px-4 py-3 bg-slate-800 rounded-lg">
+              <p className="text-sm text-slate-200 font-medium truncate">
+                {session.user.name || session.user.email}
+              </p>
+              <p className="text-xs text-slate-400 truncate">{session.user.email}</p>
+              <button
+                onClick={() => signOut({ callbackUrl: "/login" })}
+                className="flex items-center gap-2 mt-2 text-xs text-slate-400 hover:text-white transition-colors"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                Sign out
+              </button>
+            </div>
+          )}
         </div>
       </aside>
 
@@ -115,6 +130,18 @@ export default function Sidebar() {
                   </Link>
                 );
               })}
+              {session?.user && (
+                <div className="border-t border-slate-700 mt-2 pt-2">
+                  <p className="px-4 py-1 text-xs text-slate-400 truncate">{session.user.email}</p>
+                  <button
+                    onClick={() => signOut({ callbackUrl: "/login" })}
+                    className="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition-colors w-full"
+                  >
+                    <LogOut className="w-5 h-5" />
+                    <span className="font-medium">Sign out</span>
+                  </button>
+                </div>
+              )}
             </nav>
           </div>
         </>

@@ -15,7 +15,14 @@ export async function GET(
     const { id } = await params;
     const document = await prisma.document.findUnique({
       where: { id, userId: session.user.id },
-      include: {
+      select: {
+        id: true,
+        filename: true,
+        status: true,
+        pageCount: true,
+        createdAt: true,
+        updatedAt: true,
+        errorMessage: true,
         leaseTerms: true,
         chunks: {
           orderBy: { chunkIndex: "asc" },

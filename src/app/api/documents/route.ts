@@ -11,7 +11,14 @@ export async function GET() {
 
     const documents = await prisma.document.findMany({
       where: { userId: session.user.id },
-      include: {
+      select: {
+        id: true,
+        filename: true,
+        status: true,
+        pageCount: true,
+        createdAt: true,
+        updatedAt: true,
+        errorMessage: true,
         leaseTerms: true,
         _count: { select: { chunks: true } },
       },

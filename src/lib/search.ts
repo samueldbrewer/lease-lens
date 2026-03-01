@@ -90,6 +90,7 @@ export async function searchChunksFallback(
 }
 
 export async function buildChatContext(query: string, userId: string): Promise<string> {
+  // Search for relevant document chunks based on the user's query
   let results: SearchResult[];
 
   try {
@@ -102,39 +103,76 @@ export async function buildChatContext(query: string, userId: string): Promise<s
     results = await searchChunksFallback(query, userId, 15);
   }
 
+  // Fetch ALL lease terms with full detail — this is the same data the portfolio page shows
   const allLeaseTerms = await prisma.leaseTerms.findMany({
     where: { document: { userId } },
-    include: { document: { select: { id: true, filename: true } } },
+    include: { document: { select: { id: true, filename: true, pageCount: true } } },
   });
 
+  // Build the full portfolio context so the AI has everything the user sees on the dashboard
   let context = "## Portfolio Summary\n\n";
+  context += `Total documents: ${allLeaseTerms.length}\n\n`;
 
   for (const lt of allLeaseTerms) {
     context += `### ${lt.document.filename} (ID: ${lt.document.id})\n`;
-    if (lt.propertyAddress) context += `- Property: ${lt.propertyAddress}\n`;
+    context += `PDF link: /api/documents/${lt.document.id}/pdf\n`;
+    if (lt.propertyAddress) context += `- Property Address: ${lt.propertyAddress}\n`;
     if (lt.tenantName) context += `- Tenant: ${lt.tenantName}\n`;
     if (lt.landlordName) context += `- Landlord: ${lt.landlordName}\n`;
     if (lt.leaseStart)
-      context += `- Start: ${new Date(lt.leaseStart).toLocaleDateString()}\n`;
+      context += `- Lease Start: ${new Date(lt.leaseStart).toLocaleDateString()}\n`;
     if (lt.leaseEnd)
-      context += `- End: ${new Date(lt.leaseEnd).toLocaleDateString()}\n`;
+      context += `- Lease End: ${new Date(lt.leaseEnd).toLocaleDateString()}\n`;
     if (lt.monthlyRent)
       context += `- Monthly Rent: $${Number(lt.monthlyRent).toLocaleString()}\n`;
-    if (lt.leaseType) context += `- Type: ${lt.leaseType}\n`;
+    if (lt.securityDeposit)
+      context += `- Security Deposit: $${Number(lt.securityDeposit).toLocaleString()}\n`;
+    if (lt.leaseType) context += `- Lease Type: ${lt.leaseType}\n`;
+    if (lt.squareFootage)
+      context += `- Square Footage: ${lt.squareFootage.toLocaleString()} sq ft\n`;
+    if (lt.permittedUse) context += `- Permitted Use: ${lt.permittedUse}\n`;
+    if (lt.renewalOptions) context += `- Renewal Options: ${lt.renewalOptions}\n`;
+    if (lt.terminationClauses) context += `- Termination Clauses: ${lt.terminationClauses}\n`;
+    if (lt.taxObligations) context += `- Tax Obligations: ${lt.taxObligations}\n`;
+    if (lt.camCharges) context += `- CAM Charges: ${lt.camCharges}\n`;
+    if (lt.escalationClauses) context += `- Escalation Clauses: ${lt.escalationClauses}\n`;
+
+    const maint = lt.maintenanceObligations as { tenant?: string[]; landlord?: string[] } | null;
+    if (maint) {
+      if (maint.tenant && maint.tenant.length > 0)
+        context += `- Tenant Maintenance: ${maint.tenant.join("; ")}\n`;
+      if (maint.landlord && maint.landlord.length > 0)
+        context += `- Landlord Maintenance: ${maint.landlord.join("; ")}\n`;
+    }
+
+    const ins = lt.insuranceRequirements as { types?: string[]; minimumCoverage?: string } | null;
+    if (ins) {
+      if (ins.types && ins.types.length > 0)
+        context += `- Insurance Types: ${ins.types.join("; ")}\n`;
+      if (ins.minimumCoverage)
+        context += `- Minimum Coverage: ${ins.minimumCoverage}\n`;
+    }
+
+    const kp = lt.keyProvisions as string[] | null;
+    if (kp && kp.length > 0)
+      context += `- Key Provisions: ${kp.join("; ")}\n`;
+
     if (lt.summary) context += `- Summary: ${lt.summary}\n`;
+    context += `- Pages: ${lt.document.pageCount}\n`;
     context += "\n";
   }
 
+  // Add the raw document sections that match the user's query
   if (results.length > 0) {
-    context += "\n## Relevant Document Sections\n\n";
+    context += "\n## Relevant Document Sections (matching your query)\n\n";
     const byDoc: Record<string, SearchResult[]> = {};
     for (const r of results) {
-      if (!byDoc[r.filename]) byDoc[r.filename] = [];
-      byDoc[r.filename].push(r);
+      if (!byDoc[r.documentId]) byDoc[r.documentId] = [];
+      byDoc[r.documentId].push(r);
     }
 
-    for (const [filename, chunks] of Object.entries(byDoc)) {
-      const docId = chunks[0].documentId;
+    for (const [docId, chunks] of Object.entries(byDoc)) {
+      const filename = chunks[0].filename;
       context += `### From: ${filename} (ID: ${docId})\n`;
       for (const chunk of chunks) {
         if (chunk.section) context += `[Section: ${chunk.section}]\n`;

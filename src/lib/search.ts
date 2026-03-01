@@ -6,6 +6,8 @@ export interface SearchResult {
   filename: string;
   content: string;
   section: string | null;
+  startPage: number | null;
+  endPage: number | null;
   rank: number;
 }
 
@@ -32,6 +34,8 @@ export async function searchChunks(
       d.filename,
       dc.content,
       dc.section,
+      dc."startPage",
+      dc."endPage",
       ts_rank(to_tsvector('english', dc.content), to_tsquery('english', $1)) as rank
     FROM "DocumentChunk" dc
     JOIN "Document" d ON dc."documentId" = d.id
@@ -74,6 +78,8 @@ export async function searchChunksFallback(
       d.filename,
       dc.content,
       dc.section,
+      dc."startPage",
+      dc."endPage",
       1.0 as rank
     FROM "DocumentChunk" dc
     JOIN "Document" d ON dc."documentId" = d.id
@@ -175,7 +181,16 @@ export async function buildChatContext(query: string, userId: string): Promise<s
       const filename = chunks[0].filename;
       context += `### From: ${filename} (ID: ${docId})\n`;
       for (const chunk of chunks) {
-        if (chunk.section) context += `[Section: ${chunk.section}]\n`;
+        const labels: string[] = [];
+        if (chunk.section) labels.push(`Section: ${chunk.section}`);
+        if (chunk.startPage) {
+          labels.push(
+            chunk.endPage && chunk.endPage !== chunk.startPage
+              ? `Pages ${chunk.startPage}-${chunk.endPage}`
+              : `Page ${chunk.startPage}`
+          );
+        }
+        if (labels.length > 0) context += `[${labels.join(" | ")}]\n`;
         context += `${chunk.content}\n\n`;
       }
     }

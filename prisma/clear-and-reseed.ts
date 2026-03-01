@@ -10,10 +10,18 @@ const prisma = new PrismaClient();
 const CHUNK_SIZE = 1500;
 const CHUNK_OVERLAP = 200;
 
+interface PageBoundary {
+  page: number;
+  startOffset: number;
+  endOffset: number;
+}
+
 interface TextChunk {
   content: string;
   chunkIndex: number;
   section: string | null;
+  startPage: number | null;
+  endPage: number | null;
 }
 
 const SECTION_PATTERNS: [RegExp, string][] = [
@@ -38,11 +46,57 @@ function detectSection(text: string): string | null {
   return null;
 }
 
-function chunkDocument(text: string): TextChunk[] {
+function buildOffsetMap(raw: string): number[] {
+  const map: number[] = [];
+  let i = 0;
+  while (i < raw.length) {
+    if (/\s/.test(raw[i])) {
+      map.push(i);
+      while (i < raw.length && /\s/.test(raw[i])) i++;
+    } else {
+      map.push(i);
+      i++;
+    }
+  }
+  return map;
+}
+
+function getPageForOffset(rawOffset: number, pageBoundaries: PageBoundary[]): number {
+  for (const pb of pageBoundaries) {
+    if (rawOffset >= pb.startOffset && rawOffset < pb.endOffset) {
+      return pb.page;
+    }
+  }
+  return pageBoundaries[pageBoundaries.length - 1]?.page ?? 1;
+}
+
+function chunkDocument(text: string, pageBoundaries?: PageBoundary[]): TextChunk[] {
   const cleaned = text.replace(/\s+/g, " ").trim();
   const chunks: TextChunk[] = [];
+
+  const offsetMap = pageBoundaries && pageBoundaries.length > 0
+    ? buildOffsetMap(text)
+    : null;
+
+  const leadingWhitespace = text.length - text.trimStart().length;
+
+  function getPages(cleanedStart: number, cleanedEnd: number): { startPage: number | null; endPage: number | null } {
+    if (!offsetMap || !pageBoundaries || pageBoundaries.length === 0) {
+      return { startPage: null, endPage: null };
+    }
+    const adjustedStart = Math.min(cleanedStart + (leadingWhitespace > 0 ? 1 : 0), offsetMap.length - 1);
+    const adjustedEnd = Math.min(cleanedEnd + (leadingWhitespace > 0 ? 1 : 0), offsetMap.length - 1);
+    const rawStart = offsetMap[Math.max(0, adjustedStart)] ?? 0;
+    const rawEnd = offsetMap[Math.max(0, adjustedEnd - 1)] ?? rawStart;
+    return {
+      startPage: getPageForOffset(rawStart, pageBoundaries),
+      endPage: getPageForOffset(rawEnd, pageBoundaries),
+    };
+  }
+
   if (cleaned.length <= CHUNK_SIZE) {
-    chunks.push({ content: cleaned, chunkIndex: 0, section: detectSection(cleaned) });
+    const pages = getPages(0, cleaned.length);
+    chunks.push({ content: cleaned, chunkIndex: 0, section: detectSection(cleaned), startPage: pages.startPage, endPage: pages.endPage });
     return chunks;
   }
   let start = 0;
@@ -62,7 +116,8 @@ function chunkDocument(text: string): TextChunk[] {
     }
     const chunkContent = cleaned.slice(start, end).trim();
     if (chunkContent.length > 0) {
-      chunks.push({ content: chunkContent, chunkIndex, section: detectSection(chunkContent) });
+      const pages = getPages(start, end);
+      chunks.push({ content: chunkContent, chunkIndex, section: detectSection(chunkContent), startPage: pages.startPage, endPage: pages.endPage });
       chunkIndex++;
     }
     start = end - CHUNK_OVERLAP;
@@ -70,6 +125,55 @@ function chunkDocument(text: string): TextChunk[] {
     if (end >= cleaned.length) break;
   }
   return chunks;
+}
+
+// Inline PDF extraction with page boundary tracking
+async function extractTextWithPages(buffer: Buffer): Promise<{ text: string; pageCount: number; pageBoundaries: PageBoundary[] }> {
+  const pageTextsCollector: string[] = [];
+  const data = await pdf(buffer, {
+    pagerender: (pageData) => {
+      return pageData.getTextContent().then((textContent) => {
+        const pageText = textContent.items.map((item) => item.str).join("");
+        pageTextsCollector.push(pageText);
+        return pageText;
+      });
+    },
+  });
+
+  const pageBoundaries: PageBoundary[] = [];
+  const finalPageTexts = pageTextsCollector.length > 0 ? pageTextsCollector : [data.text];
+  let offset = 0;
+  for (let i = 0; i < finalPageTexts.length; i++) {
+    const pageStart = offset;
+    const pageEnd = pageStart + finalPageTexts[i].length;
+    pageBoundaries.push({ page: i + 1, startOffset: pageStart, endOffset: pageEnd });
+    offset = pageEnd + 2;
+  }
+
+  return { text: data.text, pageCount: data.numpages, pageBoundaries };
+}
+
+// Inline geocoding
+let lastGeoRequestTime = 0;
+async function geocodeAddress(address: string): Promise<{ latitude: number; longitude: number } | null> {
+  const now = Date.now();
+  const timeSinceLast = now - lastGeoRequestTime;
+  if (timeSinceLast < 1000) {
+    await new Promise((resolve) => setTimeout(resolve, 1000 - timeSinceLast));
+  }
+  lastGeoRequestTime = Date.now();
+  try {
+    const params = new URLSearchParams({ q: address, format: "json", limit: "1" });
+    const response = await fetch(`https://nominatim.openstreetmap.org/search?${params}`, {
+      headers: { "User-Agent": "LeaseSimple/1.0" },
+    });
+    if (!response.ok) return null;
+    const results = await response.json();
+    if (results.length === 0) return null;
+    return { latitude: parseFloat(results[0].lat), longitude: parseFloat(results[0].lon) };
+  } catch {
+    return null;
+  }
 }
 
 // Inline OpenAI call to avoid tsconfig path issues
@@ -146,10 +250,10 @@ async function main() {
   // Create/get test user
   const passwordHash = await bcrypt.hash("TestPass123!", 12);
   const user = await prisma.user.upsert({
-    where: { email: "test@leaselens.com" },
+    where: { email: "test@leasesimple.com" },
     update: {},
     create: {
-      email: "test@leaselens.com",
+      email: "test@leasesimple.com",
       passwordHash,
       name: "Test User",
     },
@@ -173,10 +277,8 @@ async function main() {
     console.log(`Processing: ${filename}`);
     const buffer = fs.readFileSync(pdfPath);
 
-    // Extract text
-    const data = await pdf(buffer);
-    const text = data.text;
-    const pageCount = data.numpages;
+    // Extract text with page boundaries
+    const { text, pageCount, pageBoundaries } = await extractTextWithPages(buffer);
     console.log(`  Text: ${text.length} chars, ${pageCount} pages`);
 
     if (!text || text.trim().length < 50) {
@@ -196,14 +298,16 @@ async function main() {
       },
     });
 
-    // Chunk
-    const chunks = chunkDocument(text);
+    // Chunk with page boundaries
+    const chunks = chunkDocument(text, pageBoundaries);
     await prisma.documentChunk.createMany({
       data: chunks.map((chunk) => ({
         documentId: document.id,
         chunkIndex: chunk.chunkIndex,
         content: chunk.content,
         section: chunk.section,
+        startPage: chunk.startPage,
+        endPage: chunk.endPage,
       })),
     });
     console.log(`  ${chunks.length} chunks`);
@@ -211,6 +315,23 @@ async function main() {
     // AI extraction
     try {
       const terms = await extractLeaseTerms(text);
+
+      // Geocode the property address
+      let latitude: number | null = null;
+      let longitude: number | null = null;
+      if (terms.propertyAddress) {
+        try {
+          const coords = await geocodeAddress(terms.propertyAddress);
+          if (coords) {
+            latitude = coords.latitude;
+            longitude = coords.longitude;
+            console.log(`  Geocoded: ${terms.propertyAddress}`);
+          }
+        } catch (geoError) {
+          console.error(`  Geocoding failed: ${geoError}`);
+        }
+      }
+
       await prisma.leaseTerms.create({
         data: {
           documentId: document.id,
@@ -233,6 +354,8 @@ async function main() {
           escalationClauses: terms.escalationClauses,
           keyProvisions: terms.keyProvisions ?? undefined,
           summary: terms.summary,
+          latitude,
+          longitude,
         },
       });
       console.log(`  AI extraction complete`);
@@ -248,7 +371,7 @@ async function main() {
   }
 
   console.log("--- Test Credentials ---");
-  console.log("Email: test@leaselens.com");
+  console.log("Email: test@leasesimple.com");
   console.log("Password: TestPass123!");
   console.log("------------------------");
 }

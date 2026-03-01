@@ -4,7 +4,7 @@ import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { FileText } from "lucide-react";
+import BrandIcon from "@/components/BrandIcon";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -59,8 +59,8 @@ export default function SignupPage() {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-2 mb-2">
-            <FileText className="w-10 h-10 text-blue-600" />
-            <h1 className="text-3xl font-bold text-slate-900">LeaseLens</h1>
+            <BrandIcon className="w-10 h-10" />
+            <h1 className="text-3xl font-bold text-slate-900">LeaseSimple</h1>
           </div>
           <p className="text-slate-500">Create your account</p>
         </div>
@@ -84,7 +84,7 @@ export default function SignupPage() {
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               placeholder="Your name (optional)"
             />
           </div>
@@ -99,7 +99,7 @@ export default function SignupPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               placeholder="you@example.com"
             />
           </div>
@@ -115,7 +115,7 @@ export default function SignupPage() {
               onChange={(e) => setPassword(e.target.value)}
               required
               minLength={8}
-              className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               placeholder="At least 8 characters"
             />
           </div>
@@ -123,7 +123,7 @@ export default function SignupPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full bg-teal-700 text-white py-2.5 rounded-lg font-medium hover:bg-teal-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? "Creating account..." : "Create account"}
           </button>
@@ -131,7 +131,7 @@ export default function SignupPage() {
 
         <p className="text-center text-sm text-slate-500 mt-6">
           Already have an account?{" "}
-          <Link href="/login" className="text-blue-600 hover:text-blue-700 font-medium">
+          <Link href="/login" className="text-teal-700 hover:text-teal-800 font-medium">
             Sign in
           </Link>
         </p>

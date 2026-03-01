@@ -50,8 +50,8 @@ export default function UploadPage() {
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="space-y-2">
-              <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
-                <span className="text-blue-600 font-bold">1</span>
+              <div className="w-10 h-10 rounded-lg bg-teal-100 flex items-center justify-center">
+                <span className="text-teal-700 font-bold">1</span>
               </div>
               <h3 className="font-medium text-gray-800">Upload</h3>
               <p className="text-sm text-gray-500">
@@ -60,8 +60,8 @@ export default function UploadPage() {
               </p>
             </div>
             <div className="space-y-2">
-              <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
-                <span className="text-blue-600 font-bold">2</span>
+              <div className="w-10 h-10 rounded-lg bg-teal-100 flex items-center justify-center">
+                <span className="text-teal-700 font-bold">2</span>
               </div>
               <h3 className="font-medium text-gray-800">AI Analysis</h3>
               <p className="text-sm text-gray-500">
@@ -70,8 +70,8 @@ export default function UploadPage() {
               </p>
             </div>
             <div className="space-y-2">
-              <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
-                <span className="text-blue-600 font-bold">3</span>
+              <div className="w-10 h-10 rounded-lg bg-teal-100 flex items-center justify-center">
+                <span className="text-teal-700 font-bold">3</span>
               </div>
               <h3 className="font-medium text-gray-800">Query & Compare</h3>
               <p className="text-sm text-gray-500">
@@ -108,7 +108,7 @@ export default function UploadPage() {
                     {doc.status === "ready" ? (
                       <CheckCircle2 className="w-4 h-4 text-green-500" />
                     ) : doc.status === "processing" ? (
-                      <Loader2 className="w-4 h-4 text-blue-500 animate-spin" />
+                      <Loader2 className="w-4 h-4 text-teal-600 animate-spin" />
                     ) : doc.status === "error" ? (
                       <AlertCircle className="w-4 h-4 text-red-500" />
                     ) : null}

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { extractTextFromPDF } from "@/lib/pdf";
 import { extractLeaseTerms } from "@/lib/claude";
 import { chunkDocument } from "@/lib/chunker";
+import { geocodeAddress } from "@/lib/geocode";
 import { auth } from "@/lib/auth";
 
 export async function POST(request: NextRequest) {
@@ -42,7 +43,7 @@ export async function POST(request: NextRequest) {
 
       try {
         const buffer = Buffer.from(await file.arrayBuffer());
-        const { text, pageCount } = await extractTextFromPDF(buffer);
+        const { text, pageCount, pageBoundaries } = await extractTextFromPDF(buffer);
 
         if (!text || text.trim().length < 50) {
           await prisma.document.update({
@@ -68,13 +69,15 @@ export async function POST(request: NextRequest) {
           data: { originalText: text, pageCount, pdfData: buffer },
         });
 
-        const chunks = chunkDocument(text);
+        const chunks = chunkDocument(text, pageBoundaries);
         await prisma.documentChunk.createMany({
           data: chunks.map((chunk) => ({
             documentId: document.id,
             chunkIndex: chunk.chunkIndex,
             content: chunk.content,
             section: chunk.section,
+            startPage: chunk.startPage,
+            endPage: chunk.endPage,
           })),
         });
 
@@ -94,6 +97,21 @@ export async function POST(request: NextRequest) {
             note: "Text extracted but structured analysis failed",
           });
           continue;
+        }
+
+        // Geocode the property address
+        let latitude: number | null = null;
+        let longitude: number | null = null;
+        if (leaseTerms.propertyAddress) {
+          try {
+            const coords = await geocodeAddress(leaseTerms.propertyAddress);
+            if (coords) {
+              latitude = coords.latitude;
+              longitude = coords.longitude;
+            }
+          } catch (geoError) {
+            console.error("Geocoding error:", geoError);
+          }
         }
 
         await prisma.leaseTerms.create({
@@ -122,6 +140,8 @@ export async function POST(request: NextRequest) {
             escalationClauses: leaseTerms.escalationClauses,
             keyProvisions: leaseTerms.keyProvisions ?? undefined,
             summary: leaseTerms.summary,
+            latitude,
+            longitude,
           },
         });
 

@@ -5,6 +5,7 @@ import path from "path";
 import { extractTextFromPDF } from "../src/lib/pdf";
 import { chunkDocument } from "../src/lib/chunker";
 import { extractLeaseTerms } from "../src/lib/claude";
+import { geocodeAddress } from "../src/lib/geocode";
 
 const prisma = new PrismaClient();
 
@@ -27,10 +28,10 @@ async function main() {
   // Create test user
   const passwordHash = await bcrypt.hash("TestPass123!", 12);
   const user = await prisma.user.upsert({
-    where: { email: "test@leaselens.com" },
+    where: { email: "test@leasesimple.com" },
     update: {},
     create: {
-      email: "test@leaselens.com",
+      email: "test@leasesimple.com",
       passwordHash,
       name: "Test User",
     },
@@ -59,7 +60,7 @@ async function main() {
     const buffer = fs.readFileSync(pdfPath);
 
     // Extract text using the real PDF pipeline
-    const { text, pageCount } = await extractTextFromPDF(buffer);
+    const { text, pageCount, pageBoundaries } = await extractTextFromPDF(buffer);
     console.log(`    Extracted ${text.length} chars, ${pageCount} pages`);
 
     if (!text || text.trim().length < 50) {
@@ -79,14 +80,16 @@ async function main() {
       },
     });
 
-    // Chunk using the real chunker
-    const chunks = chunkDocument(text);
+    // Chunk using the real chunker with page boundaries
+    const chunks = chunkDocument(text, pageBoundaries);
     await prisma.documentChunk.createMany({
       data: chunks.map((chunk) => ({
         documentId: document.id,
         chunkIndex: chunk.chunkIndex,
         content: chunk.content,
         section: chunk.section,
+        startPage: chunk.startPage,
+        endPage: chunk.endPage,
       })),
     });
     console.log(`    Created ${chunks.length} chunks`);
@@ -94,6 +97,23 @@ async function main() {
     // Extract lease terms using AI
     try {
       const leaseTerms = await extractLeaseTerms(text);
+
+      // Geocode the property address
+      let latitude: number | null = null;
+      let longitude: number | null = null;
+      if (leaseTerms.propertyAddress) {
+        try {
+          const coords = await geocodeAddress(leaseTerms.propertyAddress);
+          if (coords) {
+            latitude = coords.latitude;
+            longitude = coords.longitude;
+            console.log(`    Geocoded: ${leaseTerms.propertyAddress}`);
+          }
+        } catch (geoError) {
+          console.error(`    Geocoding failed: ${geoError}`);
+        }
+      }
+
       await prisma.leaseTerms.create({
         data: {
           documentId: document.id,
@@ -120,6 +140,8 @@ async function main() {
           escalationClauses: leaseTerms.escalationClauses,
           keyProvisions: leaseTerms.keyProvisions ?? undefined,
           summary: leaseTerms.summary,
+          latitude,
+          longitude,
         },
       });
       console.log(`    Extracted lease terms via AI`);
@@ -137,7 +159,7 @@ async function main() {
   }
 
   console.log("\n--- Test Credentials ---");
-  console.log("Email: test@leaselens.com");
+  console.log("Email: test@leasesimple.com");
   console.log("Password: TestPass123!");
   console.log("------------------------");
 }

@@ -47,7 +47,7 @@ export default function PortfolioOverview({
   ];
 
   const colorMap: Record<string, string> = {
-    blue: "bg-blue-100 text-blue-600",
+    blue: "bg-teal-100 text-teal-700",
     green: "bg-green-100 text-green-600",
     amber: "bg-amber-100 text-amber-600",
     gray: "bg-gray-100 text-gray-600",

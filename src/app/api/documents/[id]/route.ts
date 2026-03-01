@@ -31,6 +31,8 @@ export async function GET(
             chunkIndex: true,
             section: true,
             content: true,
+            startPage: true,
+            endPage: true,
           },
         },
       },

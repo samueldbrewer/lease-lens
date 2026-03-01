@@ -8,6 +8,13 @@ declare module "pdf-parse" {
     version: string;
   }
 
-  function pdf(dataBuffer: Buffer): Promise<PDFData>;
+  interface PDFOptions {
+    pagerender?: (pageData: {
+      getTextContent: () => Promise<{ items: { str: string; hasEOL?: boolean }[] }>;
+    }) => Promise<string>;
+    max?: number;
+  }
+
+  function pdf(dataBuffer: Buffer, options?: PDFOptions): Promise<PDFData>;
   export = pdf;
 }

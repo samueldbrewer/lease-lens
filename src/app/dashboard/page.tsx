@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import LeaseCard from "@/components/LeaseCard";
 import PortfolioOverview from "@/components/PortfolioOverview";
+import PortfolioMap from "@/components/PortfolioMap";
 import { Search, SlidersHorizontal } from "lucide-react";
 
 interface Document {
@@ -21,6 +22,8 @@ interface Document {
     monthlyRent?: string | number | null;
     leaseType?: string | null;
     summary?: string | null;
+    latitude?: number | null;
+    longitude?: number | null;
   } | null;
 }
 
@@ -88,7 +91,7 @@ export default function DashboardPage() {
     return (
       <div className="flex-1 flex items-center justify-center">
         <div className="text-center">
-          <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <div className="w-8 h-8 border-2 border-teal-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
           <p className="text-gray-500">Loading portfolio...</p>
         </div>
       </div>
@@ -107,6 +110,8 @@ export default function DashboardPage() {
 
       {documents.length > 0 && <PortfolioOverview stats={stats} />}
 
+      {documents.length > 0 && <PortfolioMap documents={documents} />}
+
       <div className="flex items-center gap-4">
         <div className="flex-1 relative">
           <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -115,7 +120,7 @@ export default function DashboardPage() {
             placeholder="Search by property, tenant, or landlord..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
           />
         </div>
         <div className="flex items-center gap-2">
@@ -123,7 +128,7 @@ export default function DashboardPage() {
           <select
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
-            className="rounded-xl border border-gray-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="rounded-xl border border-gray-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
           >
             <option value="all">All</option>
             <option value="ready">Analyzed</option>

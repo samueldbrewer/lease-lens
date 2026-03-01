@@ -81,16 +81,16 @@ export default function DocumentUploader({
         {...getRootProps()}
         className={`border-2 border-dashed rounded-xl p-12 text-center cursor-pointer transition-all ${
           isDragActive
-            ? "border-blue-500 bg-blue-50"
+            ? "border-teal-500 bg-teal-50"
             : uploading
               ? "border-gray-300 bg-gray-50 cursor-not-allowed"
-              : "border-gray-300 hover:border-blue-400 hover:bg-blue-50/50"
+              : "border-gray-300 hover:border-teal-400 hover:bg-teal-50/50"
         }`}
       >
         <input {...getInputProps()} />
         {uploading ? (
           <div className="space-y-4">
-            <Loader2 className="w-12 h-12 mx-auto text-blue-500 animate-spin" />
+            <Loader2 className="w-12 h-12 mx-auto text-teal-600 animate-spin" />
             <div>
               <p className="text-lg font-semibold text-gray-700">
                 Processing Documents...

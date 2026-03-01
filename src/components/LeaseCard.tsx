@@ -42,7 +42,7 @@ export default function LeaseCard({ document: doc }: LeaseCardProps) {
   return (
     <Link
       href={`/leases/${doc.id}`}
-      className="block bg-white rounded-xl border border-gray-200 hover:border-blue-300 hover:shadow-md transition-all p-6"
+      className="block bg-white rounded-xl border border-gray-200 hover:border-teal-300 hover:shadow-md transition-all p-6"
     >
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-3">
@@ -154,7 +154,7 @@ export default function LeaseCard({ document: doc }: LeaseCardProps) {
               target="_blank"
               rel="noopener noreferrer"
               onClick={(e) => e.stopPropagation()}
-              className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 transition-colors"
+              className="flex items-center gap-1 text-xs text-teal-700 hover:text-teal-900 transition-colors"
             >
               <FileText className="w-3.5 h-3.5" />
               View PDF

@@ -8,11 +8,11 @@ import {
   LayoutDashboard,
   FileUp,
   MessageSquare,
-  FileText,
   Menu,
   X,
   LogOut,
 } from "lucide-react";
+import BrandIcon from "./BrandIcon";
 
 const nav = [
   { href: "/", label: "Upload", icon: FileUp },
@@ -34,9 +34,9 @@ export default function Sidebar() {
       <aside className="hidden md:flex w-64 bg-slate-900 text-white flex-col min-h-screen">
         <div className="p-6 border-b border-slate-700">
           <Link href="/" className="flex items-center gap-2">
-            <FileText className="w-8 h-8 text-blue-400" />
+            <BrandIcon className="w-8 h-8" />
             <div>
-              <h1 className="text-xl font-bold">LeaseLens</h1>
+              <h1 className="text-xl font-bold">LeaseSimple</h1>
               <p className="text-xs text-slate-400">Lease Intelligence</p>
             </div>
           </Link>
@@ -53,7 +53,7 @@ export default function Sidebar() {
                 href={href}
                 className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
                   active
-                    ? "bg-blue-600 text-white"
+                    ? "bg-teal-700 text-white"
                     : "text-slate-300 hover:bg-slate-800 hover:text-white"
                 }`}
               >
@@ -86,8 +86,8 @@ export default function Sidebar() {
       {/* Mobile top bar */}
       <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-slate-900 text-white px-4 py-3 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2">
-          <FileText className="w-6 h-6 text-blue-400" />
-          <span className="text-lg font-bold">LeaseLens</span>
+          <BrandIcon className="w-6 h-6" />
+          <span className="text-lg font-bold">LeaseSimple</span>
         </Link>
         <button
           onClick={() => setMobileOpen(!mobileOpen)}
@@ -121,7 +121,7 @@ export default function Sidebar() {
                     onClick={() => setMobileOpen(false)}
                     className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
                       active
-                        ? "bg-blue-600 text-white"
+                        ? "bg-teal-700 text-white"
                         : "text-slate-300 hover:bg-slate-800 hover:text-white"
                     }`}
                   >
@@ -160,7 +160,7 @@ export default function Sidebar() {
                 href={href}
                 className={`flex flex-col items-center gap-0.5 py-2 px-3 rounded-lg transition-colors ${
                   active
-                    ? "text-blue-600"
+                    ? "text-teal-700"
                     : "text-gray-500"
                 }`}
               >

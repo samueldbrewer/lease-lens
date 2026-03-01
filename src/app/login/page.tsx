@@ -4,7 +4,7 @@ import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { FileText } from "lucide-react";
+import BrandIcon from "@/components/BrandIcon";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -38,8 +38,8 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-2 mb-2">
-            <FileText className="w-10 h-10 text-blue-600" />
-            <h1 className="text-3xl font-bold text-slate-900">LeaseLens</h1>
+            <BrandIcon className="w-10 h-10" />
+            <h1 className="text-3xl font-bold text-slate-900">LeaseSimple</h1>
           </div>
           <p className="text-slate-500">Sign in to your account</p>
         </div>
@@ -64,7 +64,7 @@ export default function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               placeholder="you@example.com"
             />
           </div>
@@ -79,7 +79,7 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               placeholder="Enter your password"
             />
           </div>
@@ -87,7 +87,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full bg-teal-700 text-white py-2.5 rounded-lg font-medium hover:bg-teal-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? "Signing in..." : "Sign in"}
           </button>
@@ -95,7 +95,7 @@ export default function LoginPage() {
 
         <p className="text-center text-sm text-slate-500 mt-6">
           Don&apos;t have an account?{" "}
-          <Link href="/signup" className="text-blue-600 hover:text-blue-700 font-medium">
+          <Link href="/signup" className="text-teal-700 hover:text-teal-800 font-medium">
             Sign up
           </Link>
         </p>
@@ -103,7 +103,7 @@ export default function LoginPage() {
         <div className="mt-6 bg-amber-50 border border-amber-200 rounded-xl p-5">
           <p className="text-sm font-medium text-amber-800 mb-2">Demo Credentials</p>
           <div className="text-sm text-amber-700 space-y-1">
-            <p>Email: <code className="bg-amber-100 px-1.5 py-0.5 rounded text-amber-900 font-mono text-xs">test@leaselens.com</code></p>
+            <p>Email: <code className="bg-amber-100 px-1.5 py-0.5 rounded text-amber-900 font-mono text-xs">test@leasesimple.com</code></p>
             <p>Password: <code className="bg-amber-100 px-1.5 py-0.5 rounded text-amber-900 font-mono text-xs">TestPass123!</code></p>
           </div>
         </div>

@@ -122,9 +122,9 @@ export default function ChatInterface() {
       <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-thin">
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full max-w-2xl mx-auto">
-            <Bot className="w-16 h-16 text-blue-500 mb-4" />
+            <Bot className="w-16 h-16 text-teal-600 mb-4" />
             <h2 className="text-2xl font-bold text-gray-800 mb-2">
-              LeaseLens AI Assistant
+              LeaseSimple AI Assistant
             </h2>
             <p className="text-gray-500 text-center mb-8">
               Ask questions about your lease portfolio. I can analyze terms,
@@ -136,7 +136,7 @@ export default function ChatInterface() {
                 <button
                   key={i}
                   onClick={() => setInput(question)}
-                  className="text-left p-4 rounded-xl border border-gray-200 hover:border-blue-300 hover:bg-blue-50/50 transition-colors text-sm text-gray-600"
+                  className="text-left p-4 rounded-xl border border-gray-200 hover:border-teal-300 hover:bg-teal-50/50 transition-colors text-sm text-gray-600"
                 >
                   {question}
                 </button>
@@ -150,14 +150,14 @@ export default function ChatInterface() {
               className={`flex gap-4 ${msg.role === "user" ? "justify-end" : ""}`}
             >
               {msg.role === "assistant" && (
-                <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0 mt-1">
-                  <Bot className="w-5 h-5 text-blue-600" />
+                <div className="w-8 h-8 rounded-lg bg-teal-100 flex items-center justify-center flex-shrink-0 mt-1">
+                  <Bot className="w-5 h-5 text-teal-700" />
                 </div>
               )}
               <div
                 className={`max-w-[85%] md:max-w-[75%] rounded-2xl px-4 md:px-5 py-3 ${
                   msg.role === "user"
-                    ? "bg-blue-600 text-white"
+                    ? "bg-teal-700 text-white"
                     : "bg-white border border-gray-200 text-gray-800"
                 }`}
               >
@@ -170,7 +170,7 @@ export default function ChatInterface() {
                             href={href}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-blue-600 hover:text-blue-800 underline"
+                            className="text-teal-700 hover:text-teal-900 underline"
                             {...props}
                           >
                             {children}
@@ -181,7 +181,7 @@ export default function ChatInterface() {
                       {msg.content}
                     </ReactMarkdown>
                     {loading && i === messages.length - 1 && (
-                      <span className="inline-block w-2 h-5 bg-blue-500 animate-pulse ml-1" />
+                      <span className="inline-block w-2 h-5 bg-teal-500 animate-pulse ml-1" />
                     )}
                   </div>
                 ) : (
@@ -210,7 +210,7 @@ export default function ChatInterface() {
                 onKeyDown={handleKeyDown}
                 placeholder="Ask about your leases..."
                 rows={1}
-                className="w-full resize-none rounded-xl border border-gray-300 px-4 py-3 pr-12 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-800 placeholder-gray-400"
+                className="w-full resize-none rounded-xl border border-gray-300 px-4 py-3 pr-12 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent text-gray-800 placeholder-gray-400"
                 style={{ maxHeight: "120px" }}
                 onInput={(e) => {
                   const target = e.target as HTMLTextAreaElement;
@@ -223,7 +223,7 @@ export default function ChatInterface() {
             <button
               type="submit"
               disabled={!input.trim() || loading}
-              className="p-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex-shrink-0"
+              className="p-3 bg-teal-700 text-white rounded-xl hover:bg-teal-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex-shrink-0"
             >
               {loading ? (
                 <Loader2 className="w-5 h-5 animate-spin" />

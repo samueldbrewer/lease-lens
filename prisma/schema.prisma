@@ -58,6 +58,8 @@ model LeaseTerms {
   escalationClauses      String?  @db.Text
   keyProvisions          Json?    // string[]
   summary                String?  @db.Text
+  latitude               Float?
+  longitude              Float?
   createdAt              DateTime @default(now())
 }
 
@@ -68,6 +70,8 @@ model DocumentChunk {
   chunkIndex Int
   content    String   @db.Text
   section    String?  // optional section label
+  startPage  Int?
+  endPage    Int?
   createdAt  DateTime @default(now())
 
   @@index([documentId])

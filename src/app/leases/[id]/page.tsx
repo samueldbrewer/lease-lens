@@ -51,7 +51,7 @@ interface LeaseDetail {
     keyProvisions?: string[] | null;
     summary?: string | null;
   } | null;
-  chunks?: { id: string; chunkIndex: number; section: string | null; content: string }[];
+  chunks?: { id: string; chunkIndex: number; section: string | null; content: string; startPage?: number | null; endPage?: number | null }[];
 }
 
 export default function LeaseDetailPage({
@@ -89,7 +89,7 @@ export default function LeaseDetailPage({
   if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-teal-600 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -128,7 +128,7 @@ export default function LeaseDetailPage({
             href={`/api/documents/${id}/pdf`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-2 px-3 py-2 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors text-sm font-medium"
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-teal-700 hover:bg-teal-50 transition-colors text-sm font-medium"
             title="View PDF"
           >
             <ExternalLink className="w-4 h-4" />
@@ -145,8 +145,8 @@ export default function LeaseDetailPage({
       </div>
 
       {terms?.summary && (
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-5">
-          <p className="text-blue-800">{terms.summary}</p>
+        <div className="bg-teal-50 border border-teal-200 rounded-xl p-5">
+          <p className="text-teal-900">{terms.summary}</p>
         </div>
       )}
 
@@ -154,7 +154,7 @@ export default function LeaseDetailPage({
         {/* Basic Info */}
         <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-3">
           <div className="flex items-center gap-2 mb-4">
-            <Building2 className="w-5 h-5 text-blue-500" />
+            <Building2 className="w-5 h-5 text-teal-600" />
             <h2 className="font-semibold text-gray-800">Basic Information</h2>
           </div>
           <InfoRow label="Tenant" value={terms?.tenantName} />
@@ -349,7 +349,7 @@ export default function LeaseDetailPage({
               Document Sections ({doc.chunks?.length || 0} chunks)
             </h2>
           </div>
-          <span className="text-sm text-blue-600">
+          <span className="text-sm text-teal-700">
             {showRawText ? "Hide" : "Show"}
           </span>
         </button>
@@ -360,11 +360,20 @@ export default function LeaseDetailPage({
                 key={chunk.id}
                 className="bg-gray-50 rounded-lg p-4 text-sm text-gray-700"
               >
-                {chunk.section && (
-                  <span className="inline-block text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded mb-2">
-                    {chunk.section}
-                  </span>
-                )}
+                <div className="flex gap-2 flex-wrap mb-2">
+                  {chunk.section && (
+                    <span className="inline-block text-xs bg-teal-100 text-teal-700 px-2 py-0.5 rounded">
+                      {chunk.section}
+                    </span>
+                  )}
+                  {chunk.startPage && (
+                    <span className="inline-block text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded">
+                      {chunk.endPage && chunk.endPage !== chunk.startPage
+                        ? `Pages ${chunk.startPage}-${chunk.endPage}`
+                        : `Page ${chunk.startPage}`}
+                    </span>
+                  )}
+                </div>
                 <p className="whitespace-pre-wrap">{chunk.content}</p>
               </div>
             ))}

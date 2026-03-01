@@ -7,7 +7,7 @@ import Providers from "@/components/Providers";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "LeaseLens - Lease Intelligence Platform",
+  title: "LeaseSimple - Lease Intelligence Platform",
   description:
     "AI-powered lease document analysis and portfolio management for real estate professionals",
 };

@@ -1,21 +1,85 @@
+import { PageBoundary } from "./pdf";
+
 export interface TextChunk {
   content: string;
   chunkIndex: number;
   section: string | null;
+  startPage: number | null;
+  endPage: number | null;
 }
 
 const CHUNK_SIZE = 1500;
 const CHUNK_OVERLAP = 200;
 
-export function chunkDocument(text: string): TextChunk[] {
+/**
+ * Build a mapping from cleaned-text offsets to raw-text offsets.
+ * The cleaning collapses \s+ into single spaces, so we track
+ * where each cleaned character maps to in the raw text.
+ */
+function buildOffsetMap(raw: string): number[] {
+  const map: number[] = [];
+  let i = 0;
+  while (i < raw.length) {
+    if (/\s/.test(raw[i])) {
+      // Whitespace run → single space in cleaned
+      map.push(i);
+      while (i < raw.length && /\s/.test(raw[i])) i++;
+    } else {
+      map.push(i);
+      i++;
+    }
+  }
+  return map;
+}
+
+function getPageForOffset(rawOffset: number, pageBoundaries: PageBoundary[]): number {
+  for (const pb of pageBoundaries) {
+    if (rawOffset >= pb.startOffset && rawOffset < pb.endOffset) {
+      return pb.page;
+    }
+  }
+  // If beyond last boundary, return last page
+  return pageBoundaries[pageBoundaries.length - 1]?.page ?? 1;
+}
+
+export function chunkDocument(text: string, pageBoundaries?: PageBoundary[]): TextChunk[] {
   const cleaned = text.replace(/\s+/g, " ").trim();
   const chunks: TextChunk[] = [];
 
+  // Build offset map if we have page boundaries
+  const offsetMap = pageBoundaries && pageBoundaries.length > 0
+    ? buildOffsetMap(text)
+    : null;
+
+  // Account for leading whitespace trim
+  const leadingWhitespace = text.length - text.trimStart().length;
+
+  function getPages(cleanedStart: number, cleanedEnd: number): { startPage: number | null; endPage: number | null } {
+    if (!offsetMap || !pageBoundaries || pageBoundaries.length === 0) {
+      return { startPage: null, endPage: null };
+    }
+
+    // Map cleaned offsets back to raw offsets, accounting for trim
+    const adjustedStart = Math.min(cleanedStart + (leadingWhitespace > 0 ? 1 : 0), offsetMap.length - 1);
+    const adjustedEnd = Math.min(cleanedEnd + (leadingWhitespace > 0 ? 1 : 0), offsetMap.length - 1);
+
+    const rawStart = offsetMap[Math.max(0, adjustedStart)] ?? 0;
+    const rawEnd = offsetMap[Math.max(0, adjustedEnd - 1)] ?? rawStart;
+
+    return {
+      startPage: getPageForOffset(rawStart, pageBoundaries),
+      endPage: getPageForOffset(rawEnd, pageBoundaries),
+    };
+  }
+
   if (cleaned.length <= CHUNK_SIZE) {
+    const pages = getPages(0, cleaned.length);
     chunks.push({
       content: cleaned,
       chunkIndex: 0,
       section: detectSection(cleaned),
+      startPage: pages.startPage,
+      endPage: pages.endPage,
     });
     return chunks;
   }
@@ -42,10 +106,13 @@ export function chunkDocument(text: string): TextChunk[] {
 
     const chunkContent = cleaned.slice(start, end).trim();
     if (chunkContent.length > 0) {
+      const pages = getPages(start, end);
       chunks.push({
         content: chunkContent,
         chunkIndex,
         section: detectSection(chunkContent),
+        startPage: pages.startPage,
+        endPage: pages.endPage,
       });
       chunkIndex++;
     }

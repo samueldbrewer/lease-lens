@@ -61,7 +61,7 @@ export async function extractLeaseTerms(
 
   const response = await client.chat.completions.create({
     model: "gpt-5.2",
-    max_tokens: 4096,
+    max_completion_tokens: 4096,
     messages: [
       {
         role: "system",
@@ -119,7 +119,7 @@ export async function* streamChatResponse(
 
   const stream = await client.chat.completions.create({
     model: "gpt-5.2",
-    max_tokens: 4096,
+    max_completion_tokens: 4096,
     stream: true,
     messages: [
       { role: "system", content: systemPrompt },

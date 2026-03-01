@@ -163,7 +163,23 @@ export default function ChatInterface() {
               >
                 {msg.role === "assistant" ? (
                   <div className="prose prose-sm max-w-none prose-headings:text-gray-800 prose-p:text-gray-700 prose-strong:text-gray-800 prose-li:text-gray-700">
-                    <ReactMarkdown>{msg.content}</ReactMarkdown>
+                    <ReactMarkdown
+                      components={{
+                        a: ({ href, children, ...props }) => (
+                          <a
+                            href={href}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:text-blue-800 underline"
+                            {...props}
+                          >
+                            {children}
+                          </a>
+                        ),
+                      }}
+                    >
+                      {msg.content}
+                    </ReactMarkdown>
                     {loading && i === messages.length - 1 && (
                       <span className="inline-block w-2 h-5 bg-blue-500 animate-pulse ml-1" />
                     )}

@@ -10,6 +10,7 @@ import {
   Shield,
   Wrench,
   FileText,
+  ExternalLink,
   MapPin,
   Scale,
   TrendingUp,
@@ -122,13 +123,25 @@ export default function LeaseDetailPage({
             )}
           </div>
         </div>
-        <button
-          onClick={handleDelete}
-          className="p-2 rounded-lg text-red-500 hover:bg-red-50 transition-colors"
-          title="Delete document"
-        >
-          <Trash2 className="w-5 h-5" />
-        </button>
+        <div className="flex items-center gap-2">
+          <a
+            href={`/api/documents/${id}/pdf`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors text-sm font-medium"
+            title="View PDF"
+          >
+            <ExternalLink className="w-4 h-4" />
+            View PDF
+          </a>
+          <button
+            onClick={handleDelete}
+            className="p-2 rounded-lg text-red-500 hover:bg-red-50 transition-colors"
+            title="Delete document"
+          >
+            <Trash2 className="w-5 h-5" />
+          </button>
+        </div>
       </div>
 
       {terms?.summary && (

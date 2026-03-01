@@ -21,6 +21,7 @@ model Document {
   id           String          @id @default(uuid())
   filename     String
   originalText String?         @db.Text
+  pdfData      Bytes?
   pageCount    Int             @default(0)
   status       String          @default("pending") // pending, processing, ready, error
   errorMessage String?

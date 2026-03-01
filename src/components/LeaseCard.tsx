@@ -9,6 +9,7 @@ import {
   AlertCircle,
   CheckCircle2,
   Loader2,
+  FileText,
 } from "lucide-react";
 
 interface LeaseCardProps {
@@ -146,9 +147,23 @@ export default function LeaseCard({ document: doc }: LeaseCardProps) {
         <span className="text-xs text-gray-400">
           {doc.pageCount} page{doc.pageCount !== 1 ? "s" : ""}
         </span>
-        <span className="text-xs text-gray-400">
-          {new Date(doc.createdAt).toLocaleDateString()}
-        </span>
+        <div className="flex items-center gap-3">
+          {doc.status === "ready" && (
+            <a
+              href={`/api/documents/${doc.id}/pdf`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 transition-colors"
+            >
+              <FileText className="w-3.5 h-3.5" />
+              View PDF
+            </a>
+          )}
+          <span className="text-xs text-gray-400">
+            {new Date(doc.createdAt).toLocaleDateString()}
+          </span>
+        </div>
       </div>
     </Link>
   );

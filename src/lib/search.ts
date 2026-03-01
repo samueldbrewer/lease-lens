@@ -104,13 +104,13 @@ export async function buildChatContext(query: string, userId: string): Promise<s
 
   const allLeaseTerms = await prisma.leaseTerms.findMany({
     where: { document: { userId } },
-    include: { document: { select: { filename: true } } },
+    include: { document: { select: { id: true, filename: true } } },
   });
 
   let context = "## Portfolio Summary\n\n";
 
   for (const lt of allLeaseTerms) {
-    context += `### ${lt.document.filename}\n`;
+    context += `### ${lt.document.filename} (ID: ${lt.document.id})\n`;
     if (lt.propertyAddress) context += `- Property: ${lt.propertyAddress}\n`;
     if (lt.tenantName) context += `- Tenant: ${lt.tenantName}\n`;
     if (lt.landlordName) context += `- Landlord: ${lt.landlordName}\n`;
@@ -134,7 +134,8 @@ export async function buildChatContext(query: string, userId: string): Promise<s
     }
 
     for (const [filename, chunks] of Object.entries(byDoc)) {
-      context += `### From: ${filename}\n`;
+      const docId = chunks[0].documentId;
+      context += `### From: ${filename} (ID: ${docId})\n`;
       for (const chunk of chunks) {
         if (chunk.section) context += `[Section: ${chunk.section}]\n`;
         context += `${chunk.content}\n\n`;

@@ -48,6 +48,7 @@ export async function POST(request: NextRequest) {
           await prisma.document.update({
             where: { id: document.id },
             data: {
+              pdfData: buffer,
               status: "error",
               errorMessage:
                 "Could not extract sufficient text from PDF. The file may be scanned or image-based.",
@@ -64,7 +65,7 @@ export async function POST(request: NextRequest) {
 
         await prisma.document.update({
           where: { id: document.id },
-          data: { originalText: text, pageCount },
+          data: { originalText: text, pageCount, pdfData: buffer },
         });
 
         const chunks = chunkDocument(text);

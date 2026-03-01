@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
-import { streamChatResponse } from "@/lib/claude";
-import { buildChatContext } from "@/lib/search";
+import { streamChatResponse, triageQuery } from "@/lib/claude";
+import { buildChatContext, fetchDeepReadPages } from "@/lib/search";
 import { auth } from "@/lib/auth";
 
 export async function POST(request: NextRequest) {
@@ -54,8 +54,6 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    const context = await buildChatContext(message, userId);
-
     const previousMessages = conversation.messages.map((m) => ({
       role: m.role as "user" | "assistant",
       content: m.content,
@@ -75,9 +73,40 @@ export async function POST(request: NextRequest) {
             )
           );
 
+          // Status: analyzing
+          controller.enqueue(
+            encoder.encode(
+              `data: ${JSON.stringify({ type: "status", message: "Analyzing your question..." })}\n\n`
+            )
+          );
+
+          const context = await buildChatContext(message, userId);
+
+          // Triage: decide if deep read is needed
+          const triage = await triageQuery(message, context);
+          let enrichedContext = context;
+
+          if (!triage.sufficient && triage.reads && triage.reads.length > 0) {
+            controller.enqueue(
+              encoder.encode(
+                `data: ${JSON.stringify({ type: "status", message: "Reading lease documents for details..." })}\n\n`
+              )
+            );
+
+            const deepReadText = await fetchDeepReadPages(triage.reads, userId);
+            enrichedContext = context + deepReadText;
+          }
+
+          // Clear status
+          controller.enqueue(
+            encoder.encode(
+              `data: ${JSON.stringify({ type: "status", message: "" })}\n\n`
+            )
+          );
+
           for await (const text of streamChatResponse(
             previousMessages,
-            context
+            enrichedContext
           )) {
             fullResponse += text;
             controller.enqueue(

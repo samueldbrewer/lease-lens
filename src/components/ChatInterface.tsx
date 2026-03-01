@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Send, Loader2, Bot, User } from "lucide-react";
+import { Send, Loader2, Bot, User, Search } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 
 interface ChatMessage {
@@ -14,6 +14,7 @@ export default function ChatInterface() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const [statusMessage, setStatusMessage] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -69,7 +70,10 @@ export default function ChatInterface() {
               const data = JSON.parse(line.slice(6));
               if (data.type === "conversation_id") {
                 setConversationId(data.id);
+              } else if (data.type === "status") {
+                setStatusMessage(data.message || "");
               } else if (data.type === "text") {
+                setStatusMessage("");
                 assistantMessage += data.content;
                 setMessages((prev) => {
                   const newMessages = [...prev];
@@ -88,6 +92,7 @@ export default function ChatInterface() {
       }
     } catch (error) {
       console.error("Chat error:", error);
+      setStatusMessage("");
       setMessages((prev) => [
         ...prev,
         {
@@ -98,6 +103,7 @@ export default function ChatInterface() {
       ]);
     } finally {
       setLoading(false);
+      setStatusMessage("");
     }
   };
 
@@ -195,6 +201,17 @@ export default function ChatInterface() {
               )}
             </div>
           ))
+        )}
+        {statusMessage && (
+          <div className="flex gap-4">
+            <div className="w-8 h-8 rounded-lg bg-teal-100 flex items-center justify-center flex-shrink-0 mt-1">
+              <Search className="w-5 h-5 text-teal-700" />
+            </div>
+            <div className="flex items-center gap-2 text-sm text-gray-500">
+              <Loader2 className="w-4 h-4 animate-spin text-teal-600" />
+              <span>{statusMessage}</span>
+            </div>
+          </div>
         )}
         <div ref={messagesEndRef} />
       </div>

@@ -95,6 +95,46 @@ export async function searchChunksFallback(
   return results;
 }
 
+export async function fetchDeepReadPages(
+  reads: { documentId: string; pages: number[] }[],
+  userId: string
+): Promise<string> {
+  const CHAR_LIMIT = 30000;
+  let result = "\n## Deep Read — Full Document Pages\n\n";
+  let totalChars = result.length;
+
+  for (const read of reads) {
+    const doc = await prisma.document.findFirst({
+      where: { id: read.documentId, userId },
+      select: { filename: true, originalText: true },
+    });
+
+    if (!doc?.originalText) continue;
+
+    const pages = doc.originalText.split("\n\n");
+
+    result += `### Deep Read: ${doc.filename}\n`;
+    totalChars += doc.filename.length + 20;
+
+    for (const pageNum of read.pages) {
+      // Pages are 1-indexed, array is 0-indexed
+      const pageIndex = pageNum - 1;
+      if (pageIndex < 0 || pageIndex >= pages.length) continue;
+
+      const pageText = pages[pageIndex];
+      if (totalChars + pageText.length > CHAR_LIMIT) {
+        result += `#### Page ${pageNum}\n[Truncated — context limit reached]\n\n`;
+        return result;
+      }
+
+      result += `#### Page ${pageNum}\n${pageText}\n\n`;
+      totalChars += pageText.length + 20;
+    }
+  }
+
+  return result;
+}
+
 export async function buildChatContext(query: string, userId: string): Promise<string> {
   // Search for relevant document chunks based on the user's query
   let results: SearchResult[];

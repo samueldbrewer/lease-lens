@@ -91,6 +91,70 @@ export async function extractLeaseTerms(
   }
 }
 
+export interface TriageResult {
+  sufficient: boolean;
+  reads?: { documentId: string; pages: number[] }[];
+}
+
+const TRIAGE_PROMPT = `You are a triage agent for a commercial lease analysis tool. You will receive a user's question and a summary of their lease portfolio context.
+
+Decide whether the provided context is SUFFICIENT to answer the question well, or whether reading the full original document pages would produce a materially better answer.
+
+Return a JSON object:
+- If the context is sufficient: { "sufficient": true }
+- If a deep read would help: { "sufficient": false, "reads": [{ "documentId": "...", "pages": [1, 2, 3] }] }
+
+Guidelines:
+- Portfolio-level questions (comparisons, summaries, which tenant pays most, etc.) → almost always sufficient
+- Questions about specific lease language, exact clauses, verbatim provisions, detailed obligations → deep read likely needed
+- Only request pages that are likely relevant based on the page index in the context
+- Maximum 10 pages total across all documents
+- When in doubt, mark as sufficient — the existing context already includes search-matched chunks`;
+
+export async function triageQuery(
+  question: string,
+  context: string
+): Promise<TriageResult> {
+  try {
+    const truncatedContext = context.slice(0, 12000);
+
+    const response = await client.chat.completions.create({
+      model: "gpt-5.2",
+      max_completion_tokens: 256,
+      messages: [
+        { role: "system", content: TRIAGE_PROMPT },
+        {
+          role: "user",
+          content: `QUESTION: ${question}\n\nCONTEXT:\n${truncatedContext}`,
+        },
+      ],
+      response_format: { type: "json_object" },
+    });
+
+    const content = response.choices[0]?.message?.content;
+    if (!content) return { sufficient: true };
+
+    const result = JSON.parse(content) as TriageResult;
+
+    // Enforce hard cap of 10 pages total
+    if (result.reads) {
+      let totalPages = 0;
+      result.reads = result.reads.filter((r) => {
+        const remaining = 10 - totalPages;
+        if (remaining <= 0) return false;
+        r.pages = r.pages.slice(0, remaining);
+        totalPages += r.pages.length;
+        return r.pages.length > 0;
+      });
+    }
+
+    return result;
+  } catch (error) {
+    console.error("Triage error (falling back to sufficient):", error);
+    return { sufficient: true };
+  }
+}
+
 const CHAT_SYSTEM_PROMPT = `You are LeaseSimple AI, an expert commercial real estate lease analyst. You help real estate professionals understand, compare, and manage their lease portfolios.
 
 You are provided with the user's COMPLETE lease portfolio data below, including full extracted lease terms and relevant document sections. This is REAL data from PDFs the user uploaded — use it directly. Do not make up or hallucinate any lease information.

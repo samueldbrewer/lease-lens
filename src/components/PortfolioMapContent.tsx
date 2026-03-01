@@ -3,7 +3,6 @@
 import { useEffect } from "react";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
-import "leaflet/dist/leaflet.css";
 
 // Fix Leaflet default icon paths for bundled environments
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

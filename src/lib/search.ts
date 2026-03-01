@@ -115,6 +115,25 @@ export async function buildChatContext(query: string, userId: string): Promise<s
     include: { document: { select: { id: true, filename: true, pageCount: true } } },
   });
 
+  // Fetch chunk page indexes for all user documents — tells the AI which pages cover which sections
+  const allChunkPages = await prisma.documentChunk.findMany({
+    where: { document: { userId } },
+    select: {
+      documentId: true,
+      section: true,
+      startPage: true,
+      endPage: true,
+    },
+    orderBy: { chunkIndex: "asc" },
+  });
+
+  // Group chunk page info by document
+  const chunkPagesByDoc: Record<string, { section: string | null; startPage: number | null; endPage: number | null }[]> = {};
+  for (const cp of allChunkPages) {
+    if (!chunkPagesByDoc[cp.documentId]) chunkPagesByDoc[cp.documentId] = [];
+    chunkPagesByDoc[cp.documentId].push(cp);
+  }
+
   // Build the full portfolio context so the AI has everything the user sees on the dashboard
   let context = "## Portfolio Summary\n\n";
   context += `Total documents: ${allLeaseTerms.length}\n\n`;
@@ -165,6 +184,30 @@ export async function buildChatContext(query: string, userId: string): Promise<s
 
     if (lt.summary) context += `- Summary: ${lt.summary}\n`;
     context += `- Pages: ${lt.document.pageCount}\n`;
+
+    // Add page index — maps sections to specific pages so the AI can cite them
+    const docChunks = chunkPagesByDoc[lt.document.id];
+    if (docChunks && docChunks.length > 0) {
+      const pageIndex: Record<number, Set<string>> = {};
+      for (const chunk of docChunks) {
+        if (chunk.startPage && chunk.section) {
+          if (!pageIndex[chunk.startPage]) pageIndex[chunk.startPage] = new Set();
+          pageIndex[chunk.startPage].add(chunk.section);
+          if (chunk.endPage && chunk.endPage !== chunk.startPage) {
+            if (!pageIndex[chunk.endPage]) pageIndex[chunk.endPage] = new Set();
+            pageIndex[chunk.endPage].add(chunk.section);
+          }
+        }
+      }
+      const pageEntries = Object.entries(pageIndex)
+        .sort(([a], [b]) => Number(a) - Number(b))
+        .map(([page, sections]) => `Page ${page}: ${[...sections].join(", ")}`)
+        .join("; ");
+      if (pageEntries) {
+        context += `- Page Index: ${pageEntries}\n`;
+      }
+    }
+
     context += "\n";
   }
 

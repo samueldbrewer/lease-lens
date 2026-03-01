@@ -153,9 +153,10 @@ async function extractTextWithPages(buffer: Buffer): Promise<{ text: string; pag
   return { text: data.text, pageCount: data.numpages, pageBoundaries };
 }
 
-// Inline geocoding
+// Inline geocoding with fallback
 let lastGeoRequestTime = 0;
-async function geocodeAddress(address: string): Promise<{ latitude: number; longitude: number } | null> {
+
+async function nominatimSearch(query: string): Promise<{ latitude: number; longitude: number } | null> {
   const now = Date.now();
   const timeSinceLast = now - lastGeoRequestTime;
   if (timeSinceLast < 1000) {
@@ -163,7 +164,7 @@ async function geocodeAddress(address: string): Promise<{ latitude: number; long
   }
   lastGeoRequestTime = Date.now();
   try {
-    const params = new URLSearchParams({ q: address, format: "json", limit: "1" });
+    const params = new URLSearchParams({ q: query, format: "json", limit: "1", countrycodes: "us" });
     const response = await fetch(`https://nominatim.openstreetmap.org/search?${params}`, {
       headers: { "User-Agent": "LeaseSimple/1.0" },
     });
@@ -171,6 +172,46 @@ async function geocodeAddress(address: string): Promise<{ latitude: number; long
     const results = await response.json();
     if (results.length === 0) return null;
     return { latitude: parseFloat(results[0].lat), longitude: parseFloat(results[0].lon) };
+  } catch {
+    return null;
+  }
+}
+
+function extractCityState(address: string): string | null {
+  const match = address.match(/([A-Za-z\s]+,\s*[A-Z]{2}\s*\d{5}(?:-\d{4})?)\s*$/);
+  if (match) return match[1].trim();
+  const match2 = address.match(/([A-Za-z\s]+,\s*[A-Z]{2})\s*$/);
+  if (match2) return match2[1].trim();
+  const match3 = address.match(/([A-Za-z\s]+,\s*[A-Za-z\s]{4,})\s*$/);
+  if (match3) return match3[1].trim();
+  return null;
+}
+
+function simplifyAddress(address: string): string {
+  let simplified = address.replace(/^[^,\d]*[-:]\s*/i, "");
+  simplified = simplified.replace(/\s*[-,]?\s*(suite|ste|unit|bldg|building|floor|level|#)\s*\S+/gi, "");
+  simplified = simplified.replace(/,\s*,/g, ",").replace(/^\s*,\s*/, "").trim();
+  return simplified;
+}
+
+async function geocodeAddress(address: string): Promise<{ latitude: number; longitude: number } | null> {
+  try {
+    const result1 = await nominatimSearch(address);
+    if (result1) return result1;
+
+    const simplified = simplifyAddress(address);
+    if (simplified !== address && simplified.length > 5) {
+      const result2 = await nominatimSearch(simplified);
+      if (result2) return result2;
+    }
+
+    const cityState = extractCityState(address);
+    if (cityState) {
+      const result3 = await nominatimSearch(cityState);
+      if (result3) return result3;
+    }
+
+    return null;
   } catch {
     return null;
   }

@@ -18,19 +18,20 @@ model User {
 }
 
 model Document {
-  id           String          @id @default(uuid())
-  filename     String
-  originalText String?         @db.Text
-  pdfData      Bytes?
-  pageCount    Int             @default(0)
-  status       String          @default("pending") // pending, processing, ready, error
-  errorMessage String?
-  userId       String
-  user         User            @relation(fields: [userId], references: [id])
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
-  leaseTerms   LeaseTerms?
-  chunks       DocumentChunk[]
+  id            String                 @id @default(uuid())
+  filename      String
+  originalText  String?                @db.Text
+  pdfData       Bytes?
+  pageCount     Int                    @default(0)
+  status        String                 @default("pending") // pending, processing, ready, error
+  errorMessage  String?
+  userId        String
+  user          User                   @relation(fields: [userId], references: [id])
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+  leaseTerms    LeaseTerms?
+  chunks        DocumentChunk[]
+  conversations ConversationDocument[]
 
   @@index([userId])
 }
@@ -78,13 +79,15 @@ model DocumentChunk {
 }
 
 model Conversation {
-  id        String    @id @default(uuid())
-  title     String    @default("New Conversation")
-  userId    String
-  user      User      @relation(fields: [userId], references: [id])
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  messages  Message[]
+  id          String                 @id @default(uuid())
+  title       String                 @default("New Conversation")
+  contextMode String                 @default("none") // "none" | "single" | "multi" | "portfolio"
+  userId      String
+  user        User                   @relation(fields: [userId], references: [id])
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+  messages    Message[]
+  documents   ConversationDocument[]
 
   @@index([userId])
 }
@@ -99,4 +102,18 @@ model Message {
   createdAt      DateTime     @default(now())
 
   @@index([conversationId])
+}
+
+model ConversationDocument {
+  id             String       @id @default(uuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  documentId     String
+  document       Document     @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  mode           String       // "full" | "summary"
+  attachedAt     DateTime     @default(now())
+
+  @@unique([conversationId, documentId])
+  @@index([conversationId])
+  @@index([documentId])
 }

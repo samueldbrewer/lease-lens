@@ -14,6 +14,11 @@ export async function GET() {
       orderBy: { updatedAt: "desc" },
       include: {
         _count: { select: { messages: true } },
+        documents: {
+          include: {
+            document: { select: { id: true, filename: true } },
+          },
+        },
       },
     });
 

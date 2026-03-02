@@ -1,7 +1,8 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
-import { streamChatResponse, triageQuery } from "@/lib/claude";
-import { buildChatContext, fetchDeepReadPages } from "@/lib/search";
+import { streamChatResponse } from "@/lib/claude";
+import { buildConversationContext, fitDocumentsInBudget, trimMessageHistory, estimateTokens } from "@/lib/context";
+import { detectTopicShift, runArbitrator, applyArbitrationResult } from "@/lib/arbitrator";
 import { auth } from "@/lib/auth";
 
 export async function POST(request: NextRequest) {
@@ -24,6 +25,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // Load or create conversation with documents relation
     let conversation;
     if (conversationId) {
       conversation = await prisma.conversation.findUnique({
@@ -32,6 +34,19 @@ export async function POST(request: NextRequest) {
           messages: {
             orderBy: { createdAt: "asc" },
             take: 20,
+          },
+          documents: {
+            include: {
+              document: {
+                select: {
+                  id: true,
+                  filename: true,
+                  leaseTerms: {
+                    select: { tenantName: true, propertyAddress: true },
+                  },
+                },
+              },
+            },
           },
         },
       });
@@ -42,10 +57,26 @@ export async function POST(request: NextRequest) {
         message.length > 60 ? message.slice(0, 57) + "..." : message;
       conversation = await prisma.conversation.create({
         data: { title, userId },
-        include: { messages: true },
+        include: {
+          messages: true,
+          documents: {
+            include: {
+              document: {
+                select: {
+                  id: true,
+                  filename: true,
+                  leaseTerms: {
+                    select: { tenantName: true, propertyAddress: true },
+                  },
+                },
+              },
+            },
+          },
+        },
       });
     }
 
+    // Save user message
     await prisma.message.create({
       data: {
         conversationId: conversation.id,
@@ -54,11 +85,12 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // Build message history
     const previousMessages = conversation.messages.map((m) => ({
       role: m.role as "user" | "assistant",
       content: m.content,
     }));
-    previousMessages.push({ role: "user", content: message });
+    previousMessages.push({ role: "user" as const, content: message });
 
     const encoder = new TextEncoder();
     let fullResponse = "";
@@ -67,35 +99,145 @@ export async function POST(request: NextRequest) {
       async start(controller) {
         try {
           const convId = conversation!.id;
+
+          // Emit conversation ID
           controller.enqueue(
             encoder.encode(
               `data: ${JSON.stringify({ type: "conversation_id", id: convId })}\n\n`
             )
           );
 
-          // Status: analyzing
-          controller.enqueue(
-            encoder.encode(
-              `data: ${JSON.stringify({ type: "status", message: "Analyzing your question..." })}\n\n`
-            )
-          );
+          // --- ARBITRATION PHASE ---
+          const hasAttachedDocs = conversation!.documents.length > 0;
 
-          const context = await buildChatContext(message, userId);
+          // Load all user docs for arbitrator
+          const allDocs = await prisma.document.findMany({
+            where: { userId, status: "ready" },
+            select: {
+              id: true,
+              filename: true,
+              leaseTerms: {
+                select: {
+                  tenantName: true,
+                  propertyAddress: true,
+                  monthlyRent: true,
+                },
+              },
+            },
+          });
 
-          // Triage: decide if deep read is needed
-          const triage = await triageQuery(message, context);
-          let enrichedContext = context;
+          const docIndex = allDocs.map((d) => ({
+            id: d.id,
+            filename: d.filename,
+            tenantName: d.leaseTerms?.tenantName ?? null,
+            propertyAddress: d.leaseTerms?.propertyAddress ?? null,
+            monthlyRent: d.leaseTerms?.monthlyRent ? Number(d.leaseTerms.monthlyRent) : null,
+          }));
 
-          if (!triage.sufficient && triage.reads && triage.reads.length > 0) {
+          let needsArbitration = false;
+
+          if (!hasAttachedDocs) {
+            // First message — always arbitrate
+            needsArbitration = true;
             controller.enqueue(
               encoder.encode(
-                `data: ${JSON.stringify({ type: "status", message: "Reading lease documents for details..." })}\n\n`
+                `data: ${JSON.stringify({ type: "status", message: "Analyzing your question..." })}\n\n`
               )
             );
+          } else {
+            // Check for topic shift
+            const attachedDocInfo = conversation!.documents.map((cd) => ({
+              id: cd.document.id,
+              filename: cd.document.filename,
+              tenantName: cd.document.leaseTerms?.tenantName,
+              propertyAddress: cd.document.leaseTerms?.propertyAddress,
+            }));
 
-            const deepReadText = await fetchDeepReadPages(triage.reads, userId);
-            enrichedContext = context + deepReadText;
+            const shifted = detectTopicShift(message, attachedDocInfo, docIndex);
+
+            if (shifted) {
+              needsArbitration = true;
+              controller.enqueue(
+                encoder.encode(
+                  `data: ${JSON.stringify({ type: "status", message: "Switching context..." })}\n\n`
+                )
+              );
+            }
           }
+
+          if (needsArbitration && docIndex.length > 0) {
+            const currentAttachments = conversation!.documents.map((cd) => ({
+              documentId: cd.document.id,
+              mode: cd.mode,
+            }));
+
+            const recentMsgs = previousMessages.slice(-3).map((m) => ({
+              role: m.role,
+              content: m.content,
+            }));
+
+            const result = await runArbitrator(
+              message,
+              recentMsgs,
+              currentAttachments,
+              docIndex
+            );
+
+            // Fit within token budget
+            const { fullIds, summaryIds } = await fitDocumentsInBudget(
+              result.documentIds,
+              result.summaryIds,
+              userId
+            );
+
+            result.documentIds = fullIds;
+            result.summaryIds = summaryIds;
+
+            await applyArbitrationResult(convId, result);
+          }
+
+          // --- CONTEXT PHASE ---
+          const { systemPrompt, tokenEstimate } = await buildConversationContext(
+            convId,
+            userId
+          );
+
+          // Trim message history to leave room for system prompt + output
+          const msgBudget = 400000 - tokenEstimate - 8000; // reserve for output
+          const trimmedMessages = trimMessageHistory(
+            previousMessages,
+            Math.max(msgBudget, 10000)
+          );
+
+          // Load updated conversation documents for context event
+          const updatedDocs = await prisma.conversationDocument.findMany({
+            where: { conversationId: convId },
+            include: {
+              document: { select: { id: true, filename: true } },
+            },
+          });
+
+          const contextMode = (
+            await prisma.conversation.findUnique({
+              where: { id: convId },
+              select: { contextMode: true },
+            })
+          )?.contextMode || "none";
+
+          // Emit context event so frontend knows what's attached
+          controller.enqueue(
+            encoder.encode(
+              `data: ${JSON.stringify({
+                type: "context",
+                documents: updatedDocs.map((cd) => ({
+                  id: cd.document.id,
+                  filename: cd.document.filename,
+                  mode: cd.mode,
+                })),
+                contextMode,
+              })}\n\n`
+            )
+          );
 
           // Clear status
           controller.enqueue(
@@ -104,9 +246,10 @@ export async function POST(request: NextRequest) {
             )
           );
 
+          // --- STREAM PHASE ---
           for await (const text of streamChatResponse(
-            previousMessages,
-            enrichedContext
+            trimmedMessages,
+            systemPrompt
           )) {
             fullResponse += text;
             controller.enqueue(

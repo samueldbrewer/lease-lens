@@ -1,12 +1,18 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Send, Loader2, Bot, User, Search } from "lucide-react";
+import { Send, Loader2, Bot, User, Search, FileText } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 
 interface ChatMessage {
   role: "user" | "assistant";
   content: string;
+}
+
+interface AttachedDocument {
+  id: string;
+  filename: string;
+  mode: string;
 }
 
 export default function ChatInterface() {
@@ -15,6 +21,8 @@ export default function ChatInterface() {
   const [loading, setLoading] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState("");
+  const [attachedDocuments, setAttachedDocuments] = useState<AttachedDocument[]>([]);
+  const [contextMode, setContextMode] = useState("none");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -70,6 +78,9 @@ export default function ChatInterface() {
               const data = JSON.parse(line.slice(6));
               if (data.type === "conversation_id") {
                 setConversationId(data.id);
+              } else if (data.type === "context") {
+                setAttachedDocuments(data.documents || []);
+                setContextMode(data.contextMode || "none");
               } else if (data.type === "status") {
                 setStatusMessage(data.message || "");
               } else if (data.type === "text") {
@@ -125,6 +136,27 @@ export default function ChatInterface() {
 
   return (
     <div className="flex flex-col h-full">
+      {attachedDocuments.length > 0 && (
+        <div className="flex items-center gap-2 px-6 py-2 bg-teal-50 border-b border-teal-200 flex-shrink-0">
+          <FileText className="w-4 h-4 text-teal-600 flex-shrink-0" />
+          <span className="text-xs font-medium text-teal-700">
+            {contextMode === "portfolio" ? "Comparing:" : contextMode === "multi" ? "Comparing:" : "Analyzing:"}
+          </span>
+          <div className="flex flex-wrap gap-1.5">
+            {attachedDocuments.map((doc) => (
+              <span
+                key={doc.id}
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-teal-100 text-teal-800 text-xs font-medium"
+              >
+                {doc.filename}
+                <span className="text-teal-500 font-normal">
+                  ({doc.mode === "full" ? "full text" : "summary"})
+                </span>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-thin">
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full max-w-2xl mx-auto">

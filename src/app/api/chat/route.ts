@@ -145,15 +145,16 @@ export async function POST(request: NextRequest) {
               )
             );
           } else {
-            // Check for topic shift
+            // Check for topic shift or depth shift (summary → full text needed)
             const attachedDocInfo = conversation!.documents.map((cd) => ({
               id: cd.document.id,
               filename: cd.document.filename,
+              mode: cd.mode,
               tenantName: cd.document.leaseTerms?.tenantName,
               propertyAddress: cd.document.leaseTerms?.propertyAddress,
             }));
 
-            const shifted = detectTopicShift(message, attachedDocInfo, docIndex);
+            const shifted = detectTopicShift(message, attachedDocInfo, docIndex, conversation!.contextMode);
 
             if (shifted) {
               needsArbitration = true;
@@ -171,9 +172,11 @@ export async function POST(request: NextRequest) {
               mode: cd.mode,
             }));
 
-            const recentMsgs = previousMessages.slice(-3).map((m) => ({
+            // Include enough recent messages for the arbitrator to understand context
+            // (e.g., the assistant's previous answer names the specific lease)
+            const recentMsgs = previousMessages.slice(-5).map((m) => ({
               role: m.role,
-              content: m.content,
+              content: m.content.slice(0, 500), // truncate long responses for the arbitrator
             }));
 
             const result = await runArbitrator(

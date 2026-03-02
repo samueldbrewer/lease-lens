@@ -42,12 +42,53 @@ const TOPIC_SHIFT_PHRASES = [
   "all documents",
 ];
 
+// Phrases indicating the user needs full document text, not just summaries
+const DETAIL_REQUEST_PHRASES = [
+  "exact clause",
+  "exact language",
+  "specific clause",
+  "specific language",
+  "specific page",
+  "specific section",
+  "verbatim",
+  "quote the",
+  "quote from",
+  "what does it say",
+  "what does the lease say",
+  "full text",
+  "original text",
+  "word for word",
+  "actual language",
+  "lease language",
+  "which page",
+  "what page",
+  "section number",
+  "article number",
+  "clause number",
+];
+
 export function detectTopicShift(
   message: string,
-  attachedDocs: { id: string; filename: string; tenantName?: string | null; propertyAddress?: string | null }[],
-  allDocs: DocIndex[]
+  attachedDocs: { id: string; filename: string; mode?: string; tenantName?: string | null; propertyAddress?: string | null }[],
+  allDocs: DocIndex[],
+  contextMode: string
 ): boolean {
   const msgLower = message.toLowerCase();
+
+  // In portfolio mode (all summaries), always re-arbitrate.
+  // The user may be drilling from an overview question into a specific lease
+  // that needs full text. The arbitrator (cheap LLM call) decides whether to
+  // switch to a specific doc or stay in portfolio mode.
+  if (contextMode === "portfolio") {
+    return true;
+  }
+
+  // If all attached docs are summaries and user asks for detailed info,
+  // re-arbitrate so the arbitrator can upgrade the relevant doc to full text
+  const allSummaries = attachedDocs.length > 0 && attachedDocs.every((d) => d.mode === "summary");
+  if (allSummaries && DETAIL_REQUEST_PHRASES.some((p) => msgLower.includes(p))) {
+    return true;
+  }
 
   // Check for explicit shift phrases
   if (TOPIC_SHIFT_PHRASES.some((phrase) => msgLower.includes(phrase))) {
@@ -101,14 +142,16 @@ Return a JSON object:
 
 Actions:
 - "keep": Current attachments are correct (return empty arrays — existing attachments stay)
-- "switch": User wants a different document (documentIds = new doc(s) to attach as full text)
+- "switch": User wants a different document or needs to upgrade a summary to full text (documentIds = doc(s) to attach as full text)
 - "add": User wants additional documents alongside current ones
 - "portfolio": User wants to compare across all/many leases (put most relevant as full text in documentIds, rest as summaryIds)
 
 Guidelines:
-- For questions about a specific lease/tenant/property → attach that ONE document as full text
-- For comparison questions → "portfolio" mode, put the 2-3 most relevant as full text, rest as summaries
-- For general portfolio questions → "portfolio" with all as summaries
+- For questions about a specific lease/tenant/property → attach that ONE document as full text via "switch"
+- IMPORTANT: If all current attachments are summaries and the user is asking about a SPECIFIC lease (e.g., "on that lease", "tell me more about...", asking about maintenance/clauses/terms of a specific property), use "switch" to attach that document as full text. Look at the recent conversation to determine which lease the user is referring to.
+- For questions requesting exact clauses, specific page references, verbatim language, or deep detail about a lease → that document MUST be in documentIds (full text), not summaryIds
+- For broad comparison questions across all/many leases → "portfolio" mode, put the 2-3 most relevant as full text, rest as summaries
+- For general portfolio overview questions (rankings, totals, counts) → "portfolio" with all as summaries
 - Maximum 3 documents as full text to stay within context limits
 - When only one document exists, always use it as full text`;
 

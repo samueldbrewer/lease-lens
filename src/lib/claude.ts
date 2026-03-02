@@ -111,12 +111,51 @@ Guidelines:
 - Maximum 10 pages total across all documents
 - When in doubt, mark as sufficient — the existing context already includes search-matched chunks`;
 
+function buildTriageContext(context: string): string {
+  // Extract a compact document index from the full context so triage
+  // can always see every document ID, filename, key metrics, and page index
+  // — even when the full context is very long.
+  const lines = context.split("\n");
+  const compactLines: string[] = [];
+  const keepPrefixes = [
+    "### ",           // document headers with ID
+    "- Property Address:",
+    "- Tenant:",
+    "- Monthly Rent:",
+    "- Lease Type:",
+    "- Page Index:",
+    "- Pages:",
+    "## ",            // section headers
+    "Total documents:",
+  ];
+
+  for (const line of lines) {
+    if (keepPrefixes.some((p) => line.startsWith(p))) {
+      compactLines.push(line);
+    }
+  }
+
+  let compact = compactLines.join("\n");
+
+  // Append search-matched sections (the "Relevant Document Sections" part)
+  // These are usually at the end and contain the chunks with page numbers
+  const searchSectionMarker = "## Relevant Document Sections";
+  const searchIdx = context.indexOf(searchSectionMarker);
+  if (searchIdx !== -1) {
+    const searchSection = context.slice(searchIdx);
+    // Budget: keep compact index + up to 6K of search sections
+    compact += "\n\n" + searchSection.slice(0, 6000);
+  }
+
+  return compact.slice(0, 14000);
+}
+
 export async function triageQuery(
   question: string,
   context: string
 ): Promise<TriageResult> {
   try {
-    const truncatedContext = context.slice(0, 12000);
+    const triageContext = buildTriageContext(context);
 
     const response = await client.chat.completions.create({
       model: "gpt-5.2",
@@ -125,7 +164,7 @@ export async function triageQuery(
         { role: "system", content: TRIAGE_PROMPT },
         {
           role: "user",
-          content: `QUESTION: ${question}\n\nCONTEXT:\n${truncatedContext}`,
+          content: `QUESTION: ${question}\n\nCONTEXT:\n${triageContext}`,
         },
       ],
       response_format: { type: "json_object" },
